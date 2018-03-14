@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"bytes"
+
 	"github.com/buildkite/go-buildkite/buildkite"
 	"github.com/gin-gonic/gin"
 )
@@ -40,7 +42,10 @@ func Hook(c *gin.Context) {
 	client := buildkite.NewClient(config.Client())
 
 	c.Request.ParseForm()
-
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(c.Request.Body)
+	s := buf.String()
+	log.Println(s)
 	cb := buildkite.CreateBuild{Message: "API"}
 	cb.Message = c.Request.Form.Get("message")
 	log.Println(c.Request.Form)
