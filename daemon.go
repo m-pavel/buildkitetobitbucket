@@ -24,6 +24,7 @@ func main() {
 
 	dgroup := engine.Group("/v1")
 	dgroup.GET("/start/:org/:pipeline", Hook)
+	dgroup.POST("/start/:org/:pipeline", Hook)
 
 	engine.Run(":8080")
 }
@@ -42,11 +43,12 @@ func Hook(c *gin.Context) {
 
 	cb := buildkite.CreateBuild{Message: "API"}
 	cb.Message = c.Request.Form.Get("message")
+	log.Println(c.Request.Form)
 	if cb.Message == "" {
 		if c.Request.Form.Get("repository") != "" {
 			cb.Message = fmt.Sprintf("Started by changes in %s", c.Request.Form.Get("repository"))
 		} else {
-			cb.Message = "Automatically stated"
+			cb.Message = "Automatically started"
 		}
 	}
 
