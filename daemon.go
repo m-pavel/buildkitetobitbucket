@@ -9,8 +9,12 @@ import (
 
 	"encoding/json"
 
+	"flag"
+	"syscall"
+
 	"github.com/buildkite/go-buildkite/buildkite"
 	"github.com/gin-gonic/gin"
+	daemon "github.com/sevlyar/go-daemon"
 )
 
 const (
@@ -32,9 +36,51 @@ type Body struct {
 
 func main() {
 
+	var logf = flag.String("log", "daemon.log", "log")
+	var pid = flag.String("pid", "daemon.pid", "pid")
+	var notdaemonize = flag.Bool("n", false, "Do not do to background.")
+	var signal = flag.String("s", "", `send signal to the daemon stop — shutdown`)
+	flag.Parse()
+
+	daemon.AddCommand(daemon.StringFlag(signal, "stop"), syscall.SIGTERM, termHandler)
+
+	cntxt := &daemon.Context{
+		PidFileName: *pid,
+		PidFilePerm: 0644,
+		LogFileName: *logf,
+		LogFilePerm: 0640,
+		WorkDir:     "/tmp",
+		Umask:       027,
+		Args:        os.Args,
+	}
+
+	if !*notdaemonize && len(daemon.ActiveFlags()) > 0 {
+		d, err := cntxt.Search()
+		if err != nil {
+			log.Fatalf("Unable send signal to the daemon: %v", err)
+		}
+		daemon.SendCommands(d)
+		return
+	}
+
 	if os.Getenv(apiToken) == "" {
 		log.Fatalf("Environment variable %s must be specified.", apiToken)
 	}
+
+	if !*notdaemonize {
+		d, err := cntxt.Reborn()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if d != nil {
+			return
+		}
+	}
+
+	daemonfunc()
+}
+
+func daemonfunc() {
 	engine := gin.Default()
 
 	dgroup := engine.Group("/v1")
@@ -82,4 +128,18 @@ func Hook(c *gin.Context) {
 		c.Status(500)
 		return
 	}
+}
+
+var (
+	stop = make(chan struct{})
+	done = make(chan struct{})
+)
+
+func termHandler(sig os.Signal) error {
+	log.Println("terminating...")
+	stop <- struct{}{}
+	if sig == syscall.SIGQUIT {
+		<-done
+	}
+	return daemon.ErrStop
 }
