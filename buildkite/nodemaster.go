@@ -25,12 +25,16 @@ type Node struct {
 	Name  string
 }
 
-func (n Node) Start() {
+func (n Node) Start(ec2p *ec2.EC2) error {
 	log.Printf("Starting node %s\n", n.ID)
+	_, err := ec2p.StartInstances(&ec2.StartInstancesInput{InstanceIds: []*string{aws.String(n.ID)}})
+	return err
 }
 
-func (n Node) Stop() {
+func (n Node) Stop(ec2p *ec2.EC2) error {
 	log.Printf("Stoping node %s\n", n.ID)
+	_, err := ec2p.StopInstances(&ec2.StopInstancesInput{InstanceIds: []*string{aws.String(n.ID)}})
+	return err
 }
 
 func (n Node) CanShutDown(c *buildkite.Client) bool {
@@ -73,18 +77,22 @@ type Nodemaster struct {
 
 	client *buildkite.Client
 	ec2    *ec2.EC2
+	check  time.Duration
 }
 
-func NewNodemaster(config string, client *buildkite.Client) (*Nodemaster, error) {
-	nm := Nodemaster{config: ReadConfig(config), Nodes: make(map[string]*Node), Builds: make(map[string]*BuildState)}
+func NewNodemaster(config string, client *buildkite.Client, ch time.Duration) (*Nodemaster, error) {
+	nm := Nodemaster{config: ReadConfig(config), Nodes: make(map[string]*Node), Builds: make(map[string]*BuildState), check: ch}
 	nm.done = nm.startChecker()
+
 	nm.client = client
+
 	sess, err := nm.config.AswSession(nm.config.Ec2Region)
 	if err != nil {
 		return nil, err
 	}
 
 	nm.ec2 = ec2.New(sess)
+
 	return &nm, nil
 }
 
@@ -160,21 +168,32 @@ func (nm *Nodemaster) Check() {
 			reqNodes += v.Nodes
 		}
 	}
-	nm.UpdateNodes()
-
-	if nm.RunningNodes() > reqNodes {
-		nm.ShutdownNodes(nm.RunningNodes() - reqNodes)
+	err := nm.UpdateNodes()
+	if err != nil {
+		log.Println(err)
+		return
 	}
+	if nm.RunningNodes() > reqNodes && nm.RunningNodes() > nm.config.Warmupnodes {
+		nm.ShutdownNodes(nm.RunningNodes() - reqNodes - nm.config.Warmupnodes)
+	}
+
 	if reqNodes > nm.RunningNodes() {
 		nm.StartNodes(reqNodes - nm.RunningNodes())
 	}
-	log.Printf("Required nodes %d running %d, total %d\n", reqNodes, nm.RunningNodes(), nm.TotalNodes())
+	log.Printf("Required nodes %d (%d) running %d, total %d\n", reqNodes, nm.config.Warmupnodes, nm.RunningNodes(), nm.TotalNodes())
 }
 func (nm *Nodemaster) ShutdownNodes(num int) {
 	for i := 0; i < num; i++ {
 		node := nm.GetRandomNode(NodeRunning)
-		if node.CanShutDown(nm.client) {
-			log.Printf("Shutting down node %s\n", node.ID)
+		if node == nil {
+			log.Println("Unable to find running node")
+		} else {
+			if node.CanShutDown(nm.client) {
+				err := node.Stop(nm.ec2)
+				if err != nil {
+					log.Println(err)
+				}
+			}
 		}
 	}
 }
@@ -182,7 +201,14 @@ func (nm *Nodemaster) ShutdownNodes(num int) {
 func (nm *Nodemaster) StartNodes(num int) {
 	for i := 0; i < num; i++ {
 		node := nm.GetRandomNode(NodeStopped)
-		log.Printf("Starting node %s\n", node.ID)
+		if node == nil {
+			log.Println("Unable to find free node")
+		} else {
+			err := node.Start(nm.ec2)
+			if err != nil {
+				log.Println(err)
+			}
+		}
 	}
 }
 
@@ -203,7 +229,7 @@ func (nm *Nodemaster) startChecker() chan bool {
 	done := make(chan bool)
 
 	go func() {
-		ticker := time.NewTicker(time.Second * 5) // TODO Minutes
+		ticker := time.NewTicker(nm.check)
 		defer ticker.Stop()
 		for {
 			select {

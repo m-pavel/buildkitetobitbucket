@@ -19,6 +19,7 @@ func main() {
 	var notdaemonize = flag.Bool("n", false, "Do not do to background.")
 	var signal = flag.String("s", "", `send signal to the daemon stop — shutdown`)
 	var config = flag.String("c", "", `configuration file`)
+	var timeout = flag.Int("p", 60, `timeout seconds`)
 	flag.Parse()
 
 	log.SetFlags(log.Lshortfile | log.Ltime)
@@ -47,6 +48,10 @@ func main() {
 		log.Fatalf("Environment variable '%s' must be specified.", buildkite.ApiToken)
 	}
 
+	if *timeout < 30 {
+		log.Fatal("Minimal timeout 30s.")
+	}
+
 	if !*notdaemonize {
 		d, err := cntxt.Reborn()
 		if err != nil {
@@ -57,12 +62,12 @@ func main() {
 		}
 	}
 
-	daemonfunc(*config)
+	daemonfunc(*config, *timeout)
 }
 
-func daemonfunc(config string) {
+func daemonfunc(config string, timeput int) {
 	engine := gin.New()
-	bk, err := buildkite.NewBuildKite(config)
+	bk, err := buildkite.NewBuildKite(config, timeput)
 	if err != nil {
 		log.Fatal(err)
 	}

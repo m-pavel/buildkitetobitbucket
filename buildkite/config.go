@@ -29,6 +29,7 @@ type NotifyConfig struct {
 	AwsProfile    string `yaml:"awsprofile"`
 	Pipelines     []PipelineConfig
 	NotifyEnabled bool `yaml:"notifyenabled"`
+	Warmupnodes   int
 }
 
 func ReadConfig(path string) *NotifyConfig {

@@ -5,6 +5,8 @@ import (
 
 	"log"
 
+	"time"
+
 	bkt "github.com/buildkite/go-buildkite/buildkite"
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +22,7 @@ type BuildKite struct {
 	bkCLient *bkt.Client
 }
 
-func NewBuildKite(config string) (*BuildKite, error) {
+func NewBuildKite(config string, timeout int) (*BuildKite, error) {
 	bk := BuildKite{}
 
 	bkconfig, err := bkt.NewTokenConfig(os.Getenv(ApiToken), true)
@@ -29,7 +31,7 @@ func NewBuildKite(config string) (*BuildKite, error) {
 	}
 
 	bk.bkCLient = bkt.NewClient(bkconfig.Client())
-	bk.nm, err = NewNodemaster(config, bk.bkCLient)
+	bk.nm, err = NewNodemaster(config, bk.bkCLient, time.Duration(timeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}
