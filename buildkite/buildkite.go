@@ -5,29 +5,42 @@ import (
 
 	"log"
 
+	bkt "github.com/buildkite/go-buildkite/buildkite"
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	buildkiteApiToken = "buildkiteApiToken"
+	HookToken = "buildkiteHookToken"
+	ApiToken  = "apiToken"
 )
 
 type BuildKite struct {
-	router *Router
-	nm     *Nodemaster
+	router   *Router
+	nm       *Nodemaster
+	bkCLient *bkt.Client
 }
 
-func NewBuildKite(config string) *BuildKite {
+func NewBuildKite(config string) (*BuildKite, error) {
 	bk := BuildKite{}
-	bk.nm = NewNodemaster(config)
+
+	bkconfig, err := bkt.NewTokenConfig(os.Getenv(ApiToken), true)
+	if err != nil {
+		return nil, err
+	}
+
+	bk.bkCLient = bkt.NewClient(bkconfig.Client())
+	bk.nm, err = NewNodemaster(config, bk.bkCLient)
+	if err != nil {
+		return nil, err
+	}
 	bk.router = NewRouter(bk.nm, config)
-	return &bk
+	return &bk, nil
 }
 
 func (bk BuildKite) BuildkiteHook(c *gin.Context) {
-	token := os.Getenv(buildkiteApiToken)
+	token := os.Getenv(HookToken)
 	if token == "" {
-		log.Println("WARNING: No buildkite token specified. Unable to check security")
+		log.Println("WARNING: No buildkite hook token specified. Unable to check security")
 	} else {
 		if token != c.Request.Header.Get("X-Buildkite-Token") {
 			log.Println("ERROR: Wrong request token")

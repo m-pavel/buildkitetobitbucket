@@ -1,34 +1,21 @@
-package main
+package buildkite
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/buildkite/go-buildkite/buildkite"
 	"github.com/gin-gonic/gin"
 )
 
-const (
-	bitbucketApiToken = "apiToken"
-)
-
-func BitbucketHook(c *gin.Context) {
-	config, err := buildkite.NewTokenConfig(os.Getenv(bitbucketApiToken), true)
-	if err != nil {
-		c.Error(err)
-		c.Status(500)
-		return
-	}
-
-	client := buildkite.NewClient(config.Client())
+func (bk BuildKite) BitbucketHook(c *gin.Context) {
 
 	c.Request.ParseForm()
 	cb := buildkite.CreateBuild{Message: "API"}
 
 	var b Body
-	err = json.NewDecoder(c.Request.Body).Decode(&b)
+	err := json.NewDecoder(c.Request.Body).Decode(&b)
 	if err != nil {
 		log.Println(err)
 	}
@@ -45,7 +32,7 @@ func BitbucketHook(c *gin.Context) {
 
 	cb.Branch = c.Param("branch")
 	cb.Commit = "HEAD"
-	_, _, err = client.Builds.Create(c.Param("org"), c.Param("pipeline"), &cb)
+	_, _, err = bk.bkCLient.Builds.Create(c.Param("org"), c.Param("pipeline"), &cb)
 
 	if err != nil {
 		c.Error(err)

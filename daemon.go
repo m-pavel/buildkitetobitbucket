@@ -13,21 +13,7 @@ import (
 	daemon "github.com/sevlyar/go-daemon"
 )
 
-type Repository struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-}
-type Actor struct {
-	Username    string `json:"username"`
-	Displayname string `json:"display_name"`
-}
-type Body struct {
-	Repo  Repository `json:"repository"`
-	Actor Actor      `json:"actor"`
-}
-
 func main() {
-
 	var logf = flag.String("log", "daemon.log", "log")
 	var pid = flag.String("pid", "daemon.pid", "pid")
 	var notdaemonize = flag.Bool("n", false, "Do not do to background.")
@@ -35,6 +21,7 @@ func main() {
 	var config = flag.String("c", "", `configuration file`)
 	flag.Parse()
 
+	log.SetFlags(log.Lshortfile | log.Ltime)
 	daemon.AddCommand(daemon.StringFlag(signal, "stop"), syscall.SIGTERM, termHandler)
 
 	cntxt := &daemon.Context{
@@ -56,8 +43,8 @@ func main() {
 		return
 	}
 
-	if os.Getenv(bitbucketApiToken) == "" {
-		log.Fatalf("Environment variable '%s' must be specified.", bitbucketApiToken)
+	if os.Getenv(buildkite.ApiToken) == "" {
+		log.Fatalf("Environment variable '%s' must be specified.", buildkite.ApiToken)
 	}
 
 	if !*notdaemonize {
@@ -75,11 +62,13 @@ func main() {
 
 func daemonfunc(config string) {
 	engine := gin.New()
-	bk := buildkite.NewBuildKite(config)
-
+	bk, err := buildkite.NewBuildKite(config)
+	if err != nil {
+		log.Fatal(err)
+	}
 	dgroup := engine.Group("/v1")
-	dgroup.GET("/start/:org/:pipeline/:branch", BitbucketHook)
-	dgroup.POST("/start/:org/:pipeline/:branch", BitbucketHook)
+	dgroup.GET("/start/:org/:pipeline/:branch", bk.BitbucketHook)
+	dgroup.POST("/start/:org/:pipeline/:branch", bk.BitbucketHook)
 
 	dgroup.POST("/buildkite", bk.BuildkiteHook)
 
