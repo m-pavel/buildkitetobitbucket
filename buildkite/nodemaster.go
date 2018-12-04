@@ -81,7 +81,11 @@ type Nodemaster struct {
 }
 
 func NewNodemaster(config string, client *buildkite.Client, ch time.Duration) (*Nodemaster, error) {
-	nm := Nodemaster{config: ReadConfig(config), Nodes: make(map[string]*Node), Builds: make(map[string]*BuildState), check: ch}
+	cfg, err := ReadConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	nm := Nodemaster{config: cfg, Nodes: make(map[string]*Node), Builds: make(map[string]*BuildState), check: ch}
 	nm.done = nm.startChecker()
 
 	nm.client = client

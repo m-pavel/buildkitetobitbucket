@@ -52,6 +52,11 @@ func main() {
 		log.Fatal("Minimal timeout 30s.")
 	}
 
+	bk, err := buildkite.NewBuildKite(*config, *timeout)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if !*notdaemonize {
 		d, err := cntxt.Reborn()
 		if err != nil {
@@ -62,15 +67,12 @@ func main() {
 		}
 	}
 
-	daemonfunc(*config, *timeout)
+	daemonfunc(bk)
 }
 
-func daemonfunc(config string, timeput int) {
+func daemonfunc(bk *buildkite.BuildKite) {
 	engine := gin.New()
-	bk, err := buildkite.NewBuildKite(config, timeput)
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	dgroup := engine.Group("/v1")
 	dgroup.GET("/start/:org/:pipeline/:branch", bk.BitbucketHook)
 	dgroup.POST("/start/:org/:pipeline/:branch", bk.BitbucketHook)

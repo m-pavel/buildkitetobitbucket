@@ -17,13 +17,12 @@ const (
 )
 
 type Notify struct {
-	Config NotifyConfig
+	Config *NotifyConfig
 }
 
-func NewNotify(config string) *Notify {
-	n := Notify{Config: *ReadConfig(config)}
-
-	return &n
+func NewNotify(config string) (*Notify, error) {
+	cfg, err := ReadConfig(config)
+	return &Notify{Config: cfg}, err
 }
 func (n *Notify) SendFail(event Event) error {
 	return n.sendEmail(event, subjectFail, bodyFailHtml, bodyFailText)

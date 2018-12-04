@@ -35,8 +35,8 @@ func NewBuildKite(config string, timeout int) (*BuildKite, error) {
 	if err != nil {
 		return nil, err
 	}
-	bk.router = NewRouter(bk.nm, config)
-	return &bk, nil
+	bk.router, err = NewRouter(bk.nm, config)
+	return &bk, err
 }
 
 func (bk BuildKite) BuildkiteHook(c *gin.Context) {

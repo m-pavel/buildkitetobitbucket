@@ -12,12 +12,13 @@ type Router struct {
 	handlers map[string]EventHandler
 }
 
-func NewRouter(nm *Nodemaster, cfg string) *Router {
+func NewRouter(nm *Nodemaster, cfg string) (*Router, error) {
 	r := Router{handlers: make(map[string]EventHandler)}
+	var err error
 	r.handlers[EventPing] = &pingHandler{}
 	r.handlers[EventBuildRunning] = newStartedHandler(cfg, nm)
-	r.handlers[EventBuildFinished] = newFinishedHandler(cfg, nm)
-	return &r
+	r.handlers[EventBuildFinished], err = newFinishedHandler(cfg, nm)
+	return &r, err
 }
 
 func (r Router) Route(c *gin.Context) {

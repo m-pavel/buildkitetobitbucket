@@ -2,7 +2,6 @@ package buildkite
 
 import (
 	"io/ioutil"
-	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -32,26 +31,24 @@ type NotifyConfig struct {
 	Warmupnodes   int
 }
 
-func ReadConfig(path string) *NotifyConfig {
+func ReadConfig(path string) (*NotifyConfig, error) {
 	n := NotifyConfig{}
 	yamlFile, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Println(err)
-		return &n
+		return nil, err
 	}
 
 	err = yaml.Unmarshal(yamlFile, &n)
 	if err != nil {
 		n.NotifyEnabled = false
-		log.Println(err)
-		return &n
+		return nil, err
 	}
 	for i := range n.Pipelines {
 		if n.Pipelines[i].Nodes == 0 {
 			n.Pipelines[i].Nodes = 1
 		}
 	}
-	return &n
+	return &n, nil
 }
 
 func (nc *NotifyConfig) Pipeline(id string) *PipelineConfig {

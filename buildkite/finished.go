@@ -7,10 +7,11 @@ type finishedHandler struct {
 	nm     *Nodemaster
 }
 
-func newFinishedHandler(config string, nm *Nodemaster) *finishedHandler {
+func newFinishedHandler(config string, nm *Nodemaster) (*finishedHandler, error) {
 	fh := finishedHandler{nm: nm}
-	fh.Notify = NewNotify(config)
-	return &fh
+	var err error
+	fh.Notify, err = NewNotify(config)
+	return &fh, err
 }
 
 func (fh finishedHandler) Handle(e Event) int {
