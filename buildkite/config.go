@@ -54,13 +54,15 @@ func ReadConfig(path string) *NotifyConfig {
 	return &n
 }
 
-func (nc NotifyConfig) Pipeline(id string) *PipelineConfig {
+func (nc *NotifyConfig) Pipeline(id string) *PipelineConfig {
 	for _, p := range nc.Pipelines {
 		if p.Name == id {
 			return &p
 		}
 	}
-	return nil
+	newc := PipelineConfig{Nodes: 0, Name: id, Notify: []string{}}
+	nc.Pipelines = append(nc.Pipelines, newc)
+	return &newc
 }
 
 func (p PipelineConfig) Adresses() []*string {
