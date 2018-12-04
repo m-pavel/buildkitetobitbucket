@@ -1,3 +1,6 @@
 .idea/
 buildkite/notify.yml
+daemon.log
+daemon.pid
+buildkitetobitbucket
 
